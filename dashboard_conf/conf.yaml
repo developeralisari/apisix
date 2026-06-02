@@ -9,10 +9,10 @@
 conf:
   listen:
     host: 0.0.0.0
-    port: 9000
+    port: __DASHBOARD_PORT__
   etcd:
     endpoints:
-      - "etcd:2379"
+      - "etcd:__ETCD_PORT__"
   log:
     error_log:
       level: warn

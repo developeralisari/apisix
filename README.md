@@ -1,8 +1,16 @@
 # APISIX API Gateway (Dokploy / Docker Compose)
 
 Apache APISIX'i etcd ve Dashboard ile Docker Compose üzerinde çalıştıran kurulum.
-Portlar bilinçli olarak compose'da tanımlanmaz — dış erişim **Dokploy (Traefik)**
-tarafında yapılandırılır.
+**Compose dosyasında host portu yayınlanmaz.** Port yayınlama/yönlendirme tamamen
+Dokploy tarafında yapılır; port değerleri `.env` içinde tutulur (çakışmayı önlemek
+için **19000-19100** aralığı) ve Dokploy'a kopyalanır.
+
+| Servis    | İç port (expose) | Dokploy host portu (.env)        |
+|-----------|------------------|----------------------------------|
+| Dashboard | 9000             | `DASHBOARD_PORT` = `19000`        |
+| APISIX proxy | 9080          | `APISIX_PROXY_PORT` = `19080`     |
+| APISIX admin | 9180          | `APISIX_ADMIN_PORT` = `19090`     |
+| etcd      | 2379 (internal)  | yayınlanmaz                       |
 
 ## Servisler
 
@@ -38,9 +46,12 @@ Sürümler `.env` üzerinden değiştirilebilir (`*_IMAGE_TAG`).
 
 - Uygulamayı **Compose** tipinde bağlayın.
 - `.env` içeriğini Dokploy **Environment** ekranına girin (repo'ya koymayın).
-- Public domain'i APISIX **proxy** portuna (`9080`) yönlendirin.
-- **Admin API (`9180`)** ve **Dashboard (`9000`)** public'e açılmamalı; ayrı/kapalı
-  domain veya IP kısıtı arkasında tutun.
+- Compose host portu yayınlamaz; port yayınlama/yönlendirmeyi Dokploy'da yapın.
+  Değerler `.env`'de: `APISIX_PROXY_PORT` (19080), `APISIX_ADMIN_PORT` (19090),
+  `DASHBOARD_PORT` (19000). Çakışma olursa aralık (19000-19100) içinde değiştirin.
+- Public trafik APISIX **proxy** servisine (iç port 9080) gitmeli.
+- **Admin API** ve **Dashboard** public'e açık bırakılmamalı; firewall / IP kısıtı
+  arkasında tutun. (Admin key yine de korur, ama yüzeyi azaltın.)
 
 ## Güvenlik
 
@@ -55,7 +66,7 @@ Sürümler `.env` üzerinden değiştirilebilir (`*_IMAGE_TAG`).
 
 Route / upstream / plugin yapılandırması Admin API ile yapılır:
 ```bash
-curl http://<apisix-host>:9180/apisix/admin/routes \
+curl http://<apisix-host>:19090/apisix/admin/routes \
   -H "X-API-KEY: <APISIX_ADMIN_KEY>"
 ```
 veya Dashboard üzerinden.

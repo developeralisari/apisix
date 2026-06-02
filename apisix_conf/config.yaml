@@ -4,7 +4,7 @@
 # bu dosya güvenle git'e commit edilebilir.
 
 apisix:
-  node_listen: 9080
+  node_listen: ${{APISIX_PROXY_PORT}}
   enable_admin: true
 
 deployment:
@@ -12,19 +12,19 @@ deployment:
   role_traditional:
     config_provider: etcd
   admin:
-    # Dokploy iç ağından erişime izin ver. Admin API (9180) public'e
-    # açılmamalı — Dokploy tarafında kısıtlanmalı.
+    # Dokploy iç ağından erişime izin ver. Admin API public'e açılmamalı
+    # — yönlendirme/kısıtlama Dokploy tarafında yapılmalı.
     allow_admin:
       - 0.0.0.0/0
     admin_listen:
       ip: 0.0.0.0
-      port: 9180
+      port: ${{APISIX_ADMIN_PORT}}
     admin_key:
       - name: admin
         key: "${{APISIX_ADMIN_KEY}}"
         role: admin
   etcd:
     host:
-      - "http://etcd:2379"
+      - "http://etcd:${{ETCD_CLIENT_PORT}}"
     prefix: /apisix
     timeout: 30
