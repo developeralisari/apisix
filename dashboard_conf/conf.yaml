@@ -1,0 +1,28 @@
+# APISIX Dashboard konfigürasyon ŞABLONU.
+# Dashboard, conf.yaml içinde ortam değişkeni ikamesini DESTEKLEMEZ.
+# Bu yüzden aşağıdaki __PLACEHOLDER__ değerleri, container başlarken
+# docker-compose'taki entrypoint tarafından `sed` ile .env'den doldurulur.
+# Böylece secret/parola git'e commit edilmez.
+#
+# UYARI: Parola/secret değerlerinde `|` karakteri KULLANMAYIN (sed sınırlayıcısı).
+
+conf:
+  listen:
+    host: 0.0.0.0
+    port: 9000
+  etcd:
+    endpoints:
+      - "etcd:2379"
+  log:
+    error_log:
+      level: warn
+      file_path: /dev/stderr
+    access_log:
+      file_path: /dev/stdout
+
+authentication:
+  secret: "__JWT_SECRET__"
+  expire_time: 3600
+  users:
+    - username: "__ADMIN_USER__"
+      password: "__ADMIN_PASSWORD__"

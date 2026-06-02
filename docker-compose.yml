@@ -1,0 +1,82 @@
+# APISIX API Gateway — Dokploy deployment.
+#
+# ÖNEMLİ: Bu compose dosyasında bilinçli olarak `ports:` KULLANILMAZ.
+# Dış erişim (domain/port) Dokploy (Traefik) tarafında yapılandırılır.
+# `expose:` yalnızca Dokploy'un hangi iç porta yönlendireceğini bildirir,
+# host'a port publish ETMEZ.
+
+services:
+  etcd:
+    image: bitnamilegacy/etcd:${ETCD_IMAGE_TAG:-3.5.11}
+    restart: unless-stopped
+    environment:
+      ALLOW_NONE_AUTHENTICATION: "yes"
+      ETCD_ADVERTISE_CLIENT_URLS: "http://etcd:2379"
+      ETCD_LISTEN_CLIENT_URLS: "http://0.0.0.0:2379"
+    volumes:
+      - etcd_data:/bitnami/etcd
+    networks:
+      - apisix
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  apisix:
+    image: apache/apisix:${APISIX_IMAGE_TAG:-3.16.0-debian}
+    restart: unless-stopped
+    depends_on:
+      etcd:
+        condition: service_healthy
+    # APISIX, config.yaml içindeki ${{APISIX_ADMIN_KEY}} değerini bu
+    # ortam değişkeninden okur.
+    environment:
+      APISIX_ADMIN_KEY: ${APISIX_ADMIN_KEY:?APISIX_ADMIN_KEY .env icinde tanimli olmali}
+    volumes:
+      - ./apisix_conf/config.yaml:/usr/local/apisix/conf/config.yaml:ro
+    networks:
+      - apisix
+    expose:
+      - "9080"   # proxy (public domain bunu hedeflemeli)
+      - "9180"   # admin API (public'e ACILMAMALI)
+    healthcheck:
+      test: ["CMD", "curl", "-s", "-o", "/dev/null", "http://127.0.0.1:9080"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  dashboard:
+    image: apache/apisix-dashboard:${DASHBOARD_IMAGE_TAG:-3.0.1-alpine}
+    restart: unless-stopped
+    depends_on:
+      - etcd
+    # Dashboard conf.yaml env ikamesi desteklemediğinden, secret/parola
+    # değerleri başlangıçta .env'den sed ile şablona enjekte edilir.
+    environment:
+      DASHBOARD_JWT_SECRET: ${DASHBOARD_JWT_SECRET:?.env icinde tanimli olmali}
+      DASHBOARD_ADMIN_USER: ${DASHBOARD_ADMIN_USER:-admin}
+      DASHBOARD_ADMIN_PASSWORD: ${DASHBOARD_ADMIN_PASSWORD:?.env icinde tanimli olmali}
+    volumes:
+      - ./dashboard_conf/conf.yaml:/tmp/conf.tpl.yaml:ro
+    networks:
+      - apisix
+    expose:
+      - "9000"   # dashboard UI (public'e ACILMAMALI / kısıtlı erişim)
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        sed -e "s|__JWT_SECRET__|${DASHBOARD_JWT_SECRET}|g" \
+            -e "s|__ADMIN_USER__|${DASHBOARD_ADMIN_USER}|g" \
+            -e "s|__ADMIN_PASSWORD__|${DASHBOARD_ADMIN_PASSWORD}|g" \
+            /tmp/conf.tpl.yaml > /usr/local/apisix-dashboard/conf/conf.yaml
+        exec /usr/local/apisix-dashboard/manager-api -p /usr/local/apisix-dashboard
+
+networks:
+  apisix:
+    driver: bridge
+
+volumes:
+  etcd_data:
