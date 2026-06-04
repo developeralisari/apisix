@@ -39,14 +39,15 @@ services:
     restart: unless-stopped
     depends_on:
       - etcd
-    # Dashboard conf.yaml env ikamesi desteklemediğinden, secret/parola
-    # değerleri başlangıçta .env'den sed ile şablona enjekte edilir.
+      - apisix
     environment:
       DASHBOARD_JWT_SECRET: ${DASHBOARD_JWT_SECRET:?.env icinde tanimli olmali}
       DASHBOARD_ADMIN_USER: ${DASHBOARD_ADMIN_USER:-admin}
       DASHBOARD_ADMIN_PASSWORD: ${DASHBOARD_ADMIN_PASSWORD:?.env icinde tanimli olmali}
       DASHBOARD_PORT: ${DASHBOARD_PORT}
       ETCD_CLIENT_PORT: ${ETCD_CLIENT_PORT}
+      APISIX_ADMIN_KEY: ${APISIX_ADMIN_KEY}
+      APISIX_ADMIN_PORT: ${APISIX_ADMIN_PORT}
     volumes:
       - ./dashboard_conf/conf.yaml:/tmp/conf.tpl.yaml:ro
     networks:
@@ -56,34 +57,24 @@ services:
       - -c
       - |
         set -e
+        apk add --no-cache curl > /dev/null 2>&1
         sed -e "s|__JWT_SECRET__|${DASHBOARD_JWT_SECRET}|g" \
             -e "s|__ADMIN_USER__|${DASHBOARD_ADMIN_USER}|g" \
             -e "s|__ADMIN_PASSWORD__|${DASHBOARD_ADMIN_PASSWORD}|g" \
             -e "s|__DASHBOARD_PORT__|${DASHBOARD_PORT}|g" \
             -e "s|__ETCD_PORT__|${ETCD_CLIENT_PORT}|g" \
             /tmp/conf.tpl.yaml > /usr/local/apisix-dashboard/conf/conf.yaml
+        # Arka planda APISIX hazir olunca global_rules/1 olustur
+        (
+          until curl -sf -o /dev/null -X PUT \
+            "http://apisix:${APISIX_ADMIN_PORT}/apisix/admin/global_rules/1" \
+            -H "X-API-KEY: ${APISIX_ADMIN_KEY}" \
+            -d '{"plugins": {}}'; do
+            sleep 3
+          done
+          echo "Global rule 1 initialized!"
+        ) &
         exec /usr/local/apisix-dashboard/manager-api -p /usr/local/apisix-dashboard
-
-  apisix-init:
-    image: curlimages/curl:8.4.0
-    depends_on:
-      - apisix
-    environment:
-      APISIX_ADMIN_KEY: ${APISIX_ADMIN_KEY}
-      APISIX_ADMIN_PORT: ${APISIX_ADMIN_PORT}
-    networks:
-      - apisix
-    entrypoint:
-      - sh
-      - -c
-      - |
-        until curl -s -o /dev/null -w "%{http_code}" -X PUT "http://apisix:$${APISIX_ADMIN_PORT}/apisix/admin/global_rules/1" \
-          -H "X-API-KEY: $${APISIX_ADMIN_KEY}" \
-          -d '{"plugins": {}}' | grep -qE "200|201|400"; do
-          echo "Waiting for APISIX Admin API to be ready..."
-          sleep 2
-        done
-        echo "APISIX Admin API is ready and global rule 1 initialized!"
 
 networks:
   apisix:
@@ -91,3 +82,4 @@ networks:
 
 volumes:
   etcd_data:
+
