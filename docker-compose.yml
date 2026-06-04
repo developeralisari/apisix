@@ -39,15 +39,12 @@ services:
     restart: unless-stopped
     depends_on:
       - etcd
-      - apisix
     environment:
       DASHBOARD_JWT_SECRET: ${DASHBOARD_JWT_SECRET:?.env icinde tanimli olmali}
       DASHBOARD_ADMIN_USER: ${DASHBOARD_ADMIN_USER:-admin}
       DASHBOARD_ADMIN_PASSWORD: ${DASHBOARD_ADMIN_PASSWORD:?.env icinde tanimli olmali}
       DASHBOARD_PORT: ${DASHBOARD_PORT}
       ETCD_CLIENT_PORT: ${ETCD_CLIENT_PORT}
-      APISIX_ADMIN_KEY: ${APISIX_ADMIN_KEY}
-      APISIX_ADMIN_PORT: ${APISIX_ADMIN_PORT}
     volumes:
       - ./dashboard_conf/conf.yaml:/tmp/conf.tpl.yaml:ro
     networks:
@@ -57,26 +54,20 @@ services:
       - -c
       - |
         set -e
-        apk add --no-cache curl > /dev/null 2>&1
         sed -e "s|__JWT_SECRET__|${DASHBOARD_JWT_SECRET}|g" \
             -e "s|__ADMIN_USER__|${DASHBOARD_ADMIN_USER}|g" \
             -e "s|__ADMIN_PASSWORD__|${DASHBOARD_ADMIN_PASSWORD}|g" \
             -e "s|__DASHBOARD_PORT__|${DASHBOARD_PORT}|g" \
             -e "s|__ETCD_PORT__|${ETCD_CLIENT_PORT}|g" \
             /tmp/conf.tpl.yaml > /usr/local/apisix-dashboard/conf/conf.yaml
-        # APISIX hazir olana kadar bekle, sonra global_rules/1 olustur (maks 60sn)
-        for i in $(seq 1 20); do
-          if curl -sf -o /dev/null -X PUT \
-            "http://apisix:${APISIX_ADMIN_PORT}/apisix/admin/global_rules/1" \
-            -H "X-API-KEY: ${APISIX_ADMIN_KEY}" \
-            -d '{"plugins": {}}'; then
-            echo "Global rule 1 initialized!"
-            break
-          fi
-          echo "Waiting for APISIX Admin API... ($$i/20)"
-          sleep 3
-        done
         exec /usr/local/apisix-dashboard/manager-api -p /usr/local/apisix-dashboard
+
+  curl:
+    image: curlimages/curl:8.4.0
+    restart: unless-stopped
+    networks:
+      - apisix
+    entrypoint: ["sleep", "infinity"]
 
 networks:
   apisix:
