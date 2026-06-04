@@ -62,13 +62,6 @@ services:
             /tmp/conf.tpl.yaml > /usr/local/apisix-dashboard/conf/conf.yaml
         exec /usr/local/apisix-dashboard/manager-api -p /usr/local/apisix-dashboard
 
-  curl:
-    image: curlimages/curl:8.4.0
-    restart: unless-stopped
-    networks:
-      - apisix
-    entrypoint: ["sleep", "infinity"]
-
 networks:
   apisix:
     driver: bridge
