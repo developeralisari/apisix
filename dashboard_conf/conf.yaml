@@ -19,6 +19,8 @@ conf:
       file_path: /dev/stderr
     access_log:
       file_path: /dev/stdout
+  plugins:
+    - response-rewrite
 
 authentication:
   secret: "__JWT_SECRET__"
