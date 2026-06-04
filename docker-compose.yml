@@ -33,11 +33,6 @@ services:
       - ./apisix_conf/config.yaml:/usr/local/apisix/conf/config.yaml:ro
     networks:
       - apisix
-    healthcheck:
-      test: [ "CMD-SHELL", "curl -s -o /dev/null http://127.0.0.1:${APISIX_PROXY_PORT}" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   dashboard:
     image: apache/apisix-dashboard:${DASHBOARD_IMAGE_TAG:-3.0.1-alpine}
@@ -72,8 +67,7 @@ services:
   apisix-init:
     image: curlimages/curl:8.4.0
     depends_on:
-      apisix:
-        condition: service_healthy
+      - apisix
     environment:
       APISIX_ADMIN_KEY: ${APISIX_ADMIN_KEY}
       APISIX_ADMIN_PORT: ${APISIX_ADMIN_PORT}
@@ -83,9 +77,13 @@ services:
       - sh
       - -c
       - |
-        curl -i -X PUT "http://apisix:$${APISIX_ADMIN_PORT}/apisix/admin/global_rules/1" \
-        -H "X-API-KEY: $${APISIX_ADMIN_KEY}" \
-        -d '{"plugins": {}}'
+        until curl -s -o /dev/null -w "%{http_code}" -X PUT "http://apisix:$${APISIX_ADMIN_PORT}/apisix/admin/global_rules/1" \
+          -H "X-API-KEY: $${APISIX_ADMIN_KEY}" \
+          -d '{"plugins": {}}' | grep -qE "200|201|400"; do
+          echo "Waiting for APISIX Admin API to be ready..."
+          sleep 2
+        done
+        echo "APISIX Admin API is ready and global rule 1 initialized!"
 
 networks:
   apisix:
