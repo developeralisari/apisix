@@ -12,6 +12,7 @@ deployment:
   role_traditional:
     config_provider: etcd
   admin:
+    enable_admin_ui: true
     # Dokploy iç ağından erişime izin ver. Admin API public'e açılmamalı
     # — yönlendirme/kısıtlama Dokploy tarafında yapılmalı.
     allow_admin:

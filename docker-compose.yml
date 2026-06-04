@@ -34,34 +34,6 @@ services:
     networks:
       - apisix
 
-  dashboard:
-    image: apache/apisix-dashboard:${DASHBOARD_IMAGE_TAG:-3.0.0-alpine}
-    restart: unless-stopped
-    depends_on:
-      - etcd
-    environment:
-      DASHBOARD_JWT_SECRET: ${DASHBOARD_JWT_SECRET:?.env icinde tanimli olmali}
-      DASHBOARD_ADMIN_USER: ${DASHBOARD_ADMIN_USER:-admin}
-      DASHBOARD_ADMIN_PASSWORD: ${DASHBOARD_ADMIN_PASSWORD:?.env icinde tanimli olmali}
-      DASHBOARD_PORT: ${DASHBOARD_PORT}
-      ETCD_CLIENT_PORT: ${ETCD_CLIENT_PORT}
-    volumes:
-      - ./dashboard_conf/conf.yaml:/tmp/conf.tpl.yaml:ro
-    networks:
-      - apisix
-    entrypoint:
-      - /bin/sh
-      - -c
-      - |
-        set -e
-        sed -e "s|__JWT_SECRET__|${DASHBOARD_JWT_SECRET}|g" \
-            -e "s|__ADMIN_USER__|${DASHBOARD_ADMIN_USER}|g" \
-            -e "s|__ADMIN_PASSWORD__|${DASHBOARD_ADMIN_PASSWORD}|g" \
-            -e "s|__DASHBOARD_PORT__|${DASHBOARD_PORT}|g" \
-            -e "s|__ETCD_PORT__|${ETCD_CLIENT_PORT}|g" \
-            /tmp/conf.tpl.yaml > /usr/local/apisix-dashboard/conf/conf.yaml
-        exec /usr/local/apisix-dashboard/manager-api -p /usr/local/apisix-dashboard
-
 networks:
   apisix:
     driver: bridge
